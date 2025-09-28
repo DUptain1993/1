@@ -1,12 +1,3 @@
-# The Stealer - Advanced Data Extraction Platform
-
-🚀 **Development Status:** Production Ready  
-⏳ **Time Invested:** Started February 12, 2024, Enhanced December 2024  
-⏰ **Total Hours:** 200+ hours  
-👨‍💻 **Developer:** Akki (Akhand Raj)  
-📸 **Instagram:** [@akki_raj_._](https://www.instagram.com/its_just_me_akki/)  
-🔒 **Security Level:** Military Grade  
-
 ## 🎯 PROFESSIONAL DATA EXTRACTION PLATFORM
 
 **The Stealer is a comprehensive, production-ready data extraction and analysis platform designed for professional use.**
@@ -252,30 +243,3 @@ pip install -r requirements-dev.txt
 pre-commit install
 ```
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## ⚖️ Professional Use
-
-**IMPORTANT**: This software is designed for professional cybersecurity operations and authorized security assessments. Users are responsible for ensuring compliance with all applicable laws and regulations in their jurisdiction.
-
-## 📞 Support & Contact
-
-- **GitHub Issues**: [Report bugs and request features](https://github.com/Akkiraj1234/the_stealer/issues)
-- **Email**: security@stealer-tool.com
-- **Discord**: [Join our community](https://discord.gg/stealer-tool)
-- **Documentation**: [Read the full docs](https://docs.stealer-tool.com)
-
-## 🏆 Acknowledgments
-
-- Security researchers and contributors
-- Open source community
-- Educational institutions
-- Cybersecurity professionals
-
----
-
-**Remember**: With great power comes great responsibility. Use this tool ethically and legally.
-
-*Last Updated: December 2024*# 1
