@@ -28,7 +28,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
 import logging
 
-class BehavioralEvasion:
+class BehavioralEvasionEngine:
     """Advanced behavioral evasion techniques"""
     
     def __init__(self):

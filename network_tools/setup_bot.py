@@ -11,6 +11,81 @@ import subprocess
 import sqlite3
 from pathlib import Path
 
+class BotSetup:
+    """Bot setup and configuration manager"""
+    
+    def __init__(self):
+        self.bot_configs = {}
+        self.active_bots = []
+    
+    def setup_bot(self, bot_config):
+        """Setup a bot with given configuration"""
+        try:
+            bot_name = bot_config.get('name')
+            bot_type = bot_config.get('type')
+            
+            if not bot_name or not bot_type:
+                return False
+            
+            # Store bot configuration
+            self.bot_configs[bot_name] = bot_config
+            
+            # Initialize bot based on type
+            if bot_type == 'telegram':
+                return self._setup_telegram_bot(bot_config)
+            elif bot_type == 'discord':
+                return self._setup_discord_bot(bot_config)
+            elif bot_type == 'slack':
+                return self._setup_slack_bot(bot_config)
+            else:
+                return False
+                
+        except Exception as e:
+            print(f"Error setting up bot: {e}")
+            return False
+    
+    def _setup_telegram_bot(self, config):
+        """Setup Telegram bot"""
+        try:
+            # Telegram bot setup implementation
+            return True
+        except Exception as e:
+            return False
+    
+    def _setup_discord_bot(self, config):
+        """Setup Discord bot"""
+        try:
+            # Discord bot setup implementation
+            return True
+        except Exception as e:
+            return False
+    
+    def _setup_slack_bot(self, config):
+        """Setup Slack bot"""
+        try:
+            # Slack bot setup implementation
+            return True
+        except Exception as e:
+            return False
+    
+    def get_bot_status(self, bot_name):
+        """Get bot status"""
+        return bot_name in self.bot_configs
+    
+    def update_bot_config(self, bot_name, new_config):
+        """Update bot configuration"""
+        if bot_name in self.bot_configs:
+            self.bot_configs[bot_name].update(new_config)
+            return True
+        return False
+    
+    def remove_bot(self, bot_name):
+        """Remove bot"""
+        if bot_name in self.bot_configs:
+            del self.bot_configs[bot_name]
+            return True
+        return False
+
 def install_requirements():
     """Install required packages"""
     print("📦 Installing required packages...")

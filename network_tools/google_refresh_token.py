@@ -12,6 +12,31 @@ import argparse
 import sys
 import requests
 
+class GoogleRefreshTokenHandler:
+    """Google OAuth refresh token handler"""
+    
+    def __init__(self):
+        self.client_id = None
+        self.client_secret = None
+        self.refresh_token = None
+    
+    def set_credentials(self, client_id, client_secret, refresh_token):
+        """Set OAuth credentials"""
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.refresh_token = refresh_token
+    
+    def refresh_access_token(self):
+        """Refresh access token using refresh token"""
+        if not all([self.client_id, self.client_secret, self.refresh_token]):
+            raise ValueError("Credentials not set")
+        
+        return refreshToken(self.client_id, self.client_secret, self.refresh_token)
+    
+    def get_token_info(self, access_token):
+        """Get token information"""
+        return get_token_info(access_token)
+
 def refreshToken(client_id, client_secret, refresh_token):
     params = {
             "grant_type": "refresh_token",

